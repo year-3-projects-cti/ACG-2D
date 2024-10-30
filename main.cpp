@@ -17,6 +17,10 @@
 #include "shader.hpp"
 #include <string>
 
+// Inlcude stb
+#define STB_IMAGE_IMPLEMENTATION
+#include "dependente\stb\stb_image.h"
+
 //variables
 GLFWwindow* window;
 const int width = 1080, height = 1080;
@@ -25,7 +29,7 @@ const int width = 1080, height = 1080;
 // Character variables
 float characterXpos = -0.094444;
 float characterYpos = -0.983333;
-const float CHARACTER_SPEED = 0.005f;
+float CHARACTER_SPEED = 0.005f;
 const float CHARACTER_SIZE = 0.05f;
 
 // Obstacles
@@ -107,7 +111,7 @@ void moveCharacter() {
 
 	// Ensure character stays within screen bounds
 	characterXpos = std::max(-1.0f, std::min(characterXpos, 1.0f));
-	characterYpos = std::max(-1.0f, std::min(characterYpos, 1.0f));
+	characterYpos = std::max(-1.0f, std::min(characterYpos, 1.0f - CHARACTER_SIZE));
 
 	// Check for collisions; if collision, revert to original position
 	if (checkCollision(characterXpos, characterYpos)) {
@@ -121,8 +125,51 @@ void moveCharacter() {
 }
 
 
+
+// ========================================================================== IMAGE BACKGROUND ==========================================================================
+// Load texture function using stb_image
+GLuint loadTexture(const char* filePath) {
+	int width, height, nrChannels;
+	unsigned char* data = stbi_load(filePath, &width, &height, &nrChannels, 0);
+	if (!data) {
+		std::cout << "Failed to load texture: " << filePath << std::endl;
+		return 0;
+	}
+	else {
+		std::cout << "Loaded texture: " << filePath << std::endl;
+	}
+
+	GLuint texture;
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+
+	// Set the texture wrapping/filtering options
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// Load image data into the texture
+	if (nrChannels == 3) {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+	}
+	else if (nrChannels == 4) {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	}
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	stbi_image_free(data);
+	return texture;
+}
+
+// ========================================================================================================================================================================
+
+
+
 int main(void)
 {
+	glDisable(GL_DEPTH_TEST);
+
 	// Initialise GLFW
 	if (!glfwInit())
 	{
@@ -158,6 +205,7 @@ int main(void)
 
 	// Create and compile our GLSL program from the shaders
 	GLuint programID = LoadShaders("SimpleVertexShader.vertexshader", "SimpleFragmentShader.fragmentshader");
+	GLuint backgroundShaderProgram = LoadShaders("BackgroundVertexShader.vertexshader", "backgroundFragmentShader.fragmentshader");
 
 	GLfloat vertices[] = {
 		0.0f, 0.0f,    // Bottom-left corner
@@ -200,6 +248,47 @@ int main(void)
 	glEnableVertexAttribArray(0);
 
 
+	GLfloat backgroundVertices[] = {
+		// Positions    // Texture Coords
+		-1.0f, -1.0f,   0.0f, 0.0f,  // Bottom-left
+		 1.0f, -1.0f,   1.0f, 0.0f,  // Bottom-right
+		-1.0f,  1.0f,   0.0f, 1.0f,  // Top-left
+		 1.0f,  1.0f,   1.0f, 1.0f   // Top-right
+	};
+
+	GLuint backgroundIndices[] = {
+		0, 1, 2,
+		1, 3, 2
+	};
+
+	GLuint bgVAO, bgVBO, bgEBO;
+	glGenVertexArrays(1, &bgVAO);
+	glGenBuffers(1, &bgVBO);
+	glGenBuffers(1, &bgEBO);
+
+	glBindVertexArray(bgVAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, bgVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(backgroundVertices), backgroundVertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bgEBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(backgroundIndices), backgroundIndices, GL_STATIC_DRAW);
+
+	// Position attribute
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	// Texture coordinate attribute
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	GLuint backgroundTexture = loadTexture("assets/background.jpg");  // Load the texture once
+	glBindVertexArray(bgVAO);
+	glUseProgram(backgroundShaderProgram);  // Ensure you have a simple shader program for rendering textures
+	glBindTexture(GL_TEXTURE_2D, backgroundTexture);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+
 
 	// Load obstacles from file
 	FILE* obstaclesFile;
@@ -220,11 +309,6 @@ int main(void)
 			OBSTACLES_COUNT++;
 		}
 		fclose(obstaclesFile);
-		std::cout << "Loaded " << OBSTACLES_COUNT << " obstacles" << std::endl;
-		std::cout << "Positions: " << std::endl;
-		for (int i = 0; i < OBSTACLES_COUNT; i++) {
-			std::cout << obstacles[i].x << " " << obstacles[i].y << std::endl;
-		}
 	}
 
 
@@ -245,46 +329,58 @@ int main(void)
 	// Check if the window was closed
 	while (!glfwWindowShouldClose(window) && glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_RELEASE)
 	{
-		// Swap buffers
-		glfwSwapBuffers(window);
-
-		// Check for events
-		glfwPollEvents();
-
-		// Clear the screen
+		// Clear the screen (no depth buffer clear needed for 2D)
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS ||
-			glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS ||
-			glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS ||
-			glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-				moveCharacter();
-		}
+		// 1. Render the background
+		glUseProgram(backgroundShaderProgram);
+		glBindVertexArray(bgVAO);
+		glBindTexture(GL_TEXTURE_2D, backgroundTexture);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+		// 2. Render obstacles and character with the main shader
+		glUseProgram(programID);
+		glBindVertexArray(vao);
 
 		// Draw obstacles
 		for (int i = 0; i < OBSTACLES_COUNT; i++) {
-			glm::mat4 obstacle = glm::mat4(1.0f);  // Initialize as identity matrix
-			obstacle = glm::translate(obstacle, glm::vec3(obstacles[i].x, obstacles[i].y, 0.0f));
+			glm::mat4 obstacleTransform = glm::mat4(1.0f);
+			obstacleTransform = glm::translate(obstacleTransform, glm::vec3(obstacles[i].x, obstacles[i].y, 0.0f));
+			glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(obstacleTransform));
 
-			glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(obstacle));
-			glm::vec4 obstacleColor = glm::vec4(0.5f, 0.0f, 0.5f, 1.0f);
+			glm::vec4 obstacleColor = glm::vec4(0.5f, 0.0f, 0.5f, 1.0f);  // Set obstacle color
 			glUniform4fv(colorLoc, 1, glm::value_ptr(obstacleColor));
-
 
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		}
 
 		// Draw character
-		glm::mat4 character = glm::mat4(1.0f); // Initialize as identity matrix
-		character = glm::translate(character, glm::vec3(characterXpos, characterYpos, 0.0f));
+		glm::mat4 characterTransform = glm::mat4(1.0f);
+		characterTransform = glm::translate(characterTransform, glm::vec3(characterXpos, characterYpos, 0.0f));
+		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(characterTransform));
 
-		// Set transform and color uniforms for character
-		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(character));
-		glm::vec4 characterColor = glm::vec4(0.0f, 0.5f, 0.5f, 1.0f);
+		glm::vec4 characterColor = glm::vec4(0.0f, 0.5f, 0.5f, 1.0f);  // Set character color
 		glUniform4fv(colorLoc, 1, glm::value_ptr(characterColor));
 
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
+		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS ||
+			glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+			moveCharacter();
+			
+			if (CHARACTER_SPEED < 0.0150f) {
+				CHARACTER_SPEED += 0.0001f;
+			}
+
+		}
+		else if (glfwGetKey(window, GLFW_KEY_W) == GLFW_RELEASE && glfwGetKey(window, GLFW_KEY_S) == GLFW_RELEASE &&
+			glfwGetKey(window, GLFW_KEY_A) == GLFW_RELEASE && glfwGetKey(window, GLFW_KEY_D) == GLFW_RELEASE) {
+			CHARACTER_SPEED = 0.005f;
+		}
+		
+		// Swap buffers and poll events
+		glfwSwapBuffers(window);
+		glfwPollEvents();
 	}
 
 	// Cleanup

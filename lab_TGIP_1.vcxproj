@@ -23,6 +23,8 @@
     <ClCompile Include="shader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="backgroundFragmentShader.fragmentshader" />
+    <None Include="BackgroundVertexShader.vertexshader" />
     <None Include="SimpleFragmentShader.fragmentshader" />
     <None Include="SimpleVertexShader.vertexshader" />
   </ItemGroup>
