@@ -15,25 +15,54 @@
 #include "dependente\glm\gtc\type_ptr.hpp"
 
 #include "shader.hpp"
+#include <string>
 
 //variables
 GLFWwindow* window;
-const int width = 1024, height = 1024;
-int randomSquarePosition = 0;
-float characterXpos = 0;
-float characterYpos = 0;
+const int width = 1080, height = 1080;
+
+
+// Character variables
+float characterXpos = -0.094444;
+float characterYpos = -0.983333;
+const float CHARACTER_SPEED = 0.005f;
+const float CHARACTER_SIZE = 0.05f;
+
+// Obstacles
+const int MAX_OBSTACLES = 1000;
+int OBSTACLES_COUNT = 0;
+const float OBSTACLE_SIZE = 1.0f;
+glm::vec3 obstacles[MAX_OBSTACLES];
+
 
 //Handling cursor position
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 {
-	std::cout << "The mouse cursor is: " << xpos << " " << ypos << std::endl;
 }
 
 void button_callback(GLFWwindow* window, int button, int action, int mods)
 {
 	if (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS) {
-		randomSquarePosition = rand() % 10;
-		std::cout << "Random square position: " << randomSquarePosition << std::endl;
+		FILE* file;
+		file = fopen("obstacles.txt", "a");
+		if (file == NULL) {
+			std::cout << "Error opening file" << std::endl;
+		}
+		else {
+			double xpos, ypos;
+			glfwGetCursorPos(window, &xpos, &ypos);
+			// Normalize the position to the screen
+			xpos = xpos / width * 2 - 1;
+			ypos = -ypos / height * 2 + 1;
+			fprintf(file, "%f,%f\n", xpos, ypos);
+			fclose(file);
+			std::cout << "Obstacle position saved. (" << xpos << ", " << ypos << ")" << std::endl;
+
+			// Add the obstacle to the obstacles array
+			obstacles[OBSTACLES_COUNT] = glm::vec3(xpos, ypos, 0);
+			OBSTACLES_COUNT++;
+
+		}
 	}
 }
 
@@ -42,38 +71,55 @@ void window_callback(GLFWwindow* window, int new_width, int new_height)
 	glViewport(0, 0, new_width, new_height);
 }
 
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-	if (key == GLFW_KEY_W && action == GLFW_PRESS) {
-		characterYpos += 0.1f;
-		if (characterYpos > 1.0f) {
-			characterYpos = 1.0f;
+// Helper function to check collision between character and obstacles
+bool checkCollision(float newX, float newY) {
+	for (int i = 0; i < OBSTACLES_COUNT; i++) {
+		// Calculate bounding box for obstacle
+		float obstacleLeft = obstacles[i].x - CHARACTER_SIZE / 2;
+		float obstacleRight = obstacles[i].x + CHARACTER_SIZE / 2;
+		float obstacleBottom = obstacles[i].y - CHARACTER_SIZE / 2;
+		float obstacleTop = obstacles[i].y + CHARACTER_SIZE / 2;
+
+		// Calculate bounding box for character
+		float characterLeft = newX - CHARACTER_SIZE / 2;
+		float characterRight = newX + CHARACTER_SIZE / 2;
+		float characterBottom = newY - CHARACTER_SIZE / 2;
+		float characterTop = newY + CHARACTER_SIZE / 2;
+
+		// Check for collision using AABB (Axis-Aligned Bounding Box)
+		if (characterRight > obstacleLeft && characterLeft < obstacleRight &&
+			characterTop > obstacleBottom && characterBottom < obstacleTop) {
+			return true;  // Collision detected
 		}
-		std::cout << "Character position: " << characterXpos << " " << characterYpos << std::endl;
 	}
-	if (key == GLFW_KEY_S && action == GLFW_PRESS) {
-		characterYpos -= 0.1f;
-		if (characterYpos < -1.0f) {
-			characterYpos = -1.0f;
-		}
-		std::cout << "Character position: " << characterXpos << " " << characterYpos << std::endl;
-	}
-	if (key == GLFW_KEY_A && action == GLFW_PRESS) {
-		characterXpos -= 0.1f;
-		if (characterXpos < -1.0f) {
-			characterXpos = -1.0f;
-		}
-		std::cout << "Character position: " << characterXpos << " " << characterYpos << std::endl;
-	}
-	if (key == GLFW_KEY_D && action == GLFW_PRESS) {
-		characterXpos += 0.1f;
-		if (characterXpos > 1.0f) {
-			characterXpos = 1.0f;
-		}
-		std::cout << "Character position: " << characterXpos << " " << characterYpos << std::endl;
-	}
-	
+	return false;  // No collision
 }
+
+void moveCharacter() {
+	float originalX = characterXpos;
+	float originalY = characterYpos;
+
+	// Check if movement keys are pressed and update position
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) characterYpos += CHARACTER_SPEED;
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) characterYpos -= CHARACTER_SPEED;
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) characterXpos -= CHARACTER_SPEED;
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) characterXpos += CHARACTER_SPEED;
+
+	// Ensure character stays within screen bounds
+	characterXpos = std::max(-1.0f, std::min(characterXpos, 1.0f));
+	characterYpos = std::max(-1.0f, std::min(characterYpos, 1.0f));
+
+	// Check for collisions; if collision, revert to original position
+	if (checkCollision(characterXpos, characterYpos)) {
+		characterXpos = originalX;
+		characterYpos = originalY;
+		std::cout << "Collision detected! Movement blocked." << std::endl;
+	}
+	else {
+		std::cout << "Character position: (" << characterXpos << ", " << characterYpos << ")" << std::endl;
+	}
+}
+
 
 int main(void)
 {
@@ -85,7 +131,7 @@ int main(void)
 	}
 
 	// Open a window and create its OpenGL context
-	window = glfwCreateWindow(width, height, "Lab 4", NULL, NULL);
+	window = glfwCreateWindow(width, height, "2D Project", NULL, NULL);
 	if (window == NULL) {
 		fprintf(stderr, "Failed to open GLFW window.");
 		glfwTerminate();
@@ -114,15 +160,15 @@ int main(void)
 	GLuint programID = LoadShaders("SimpleVertexShader.vertexshader", "SimpleFragmentShader.fragmentshader");
 
 	GLfloat vertices[] = {
-		0.05f,  0.05f, 0.0f,
-		0.05f, -0.05f, 0.0f,
-		-0.05f, -0.05f, 0.0f,
-		-0.05f,  0.05f, 0.0f 
+		0.0f, 0.0f,    // Bottom-left corner
+		CHARACTER_SIZE, 0.0f,   // Bottom-right corner
+		0.0f, CHARACTER_SIZE,   // Top-left corner
+		CHARACTER_SIZE, CHARACTER_SIZE   // Top-right corner
 	};
 
 	GLuint indices[] = {
-		0, 3, 1,
-		1, 3, 2,
+		0, 1, 2,  // First triangle (bottom-left)
+		1, 3, 2   // Second triangle (top-right)
 	};
 
 
@@ -145,40 +191,56 @@ int main(void)
 	//set attribute pointers
 	glVertexAttribPointer(
 		0,                  // attribute 0, must match the layout in the shader.
-		3,                  // size of each attribute
+		2,                  // size of each attribute
 		GL_FLOAT,           // type
 		GL_FALSE,           // normalized?
-		3 * sizeof(float),  // stride
+		2 * sizeof(float),  // stride
 		(void*)0            // array buffer offset
 	);
 	glEnableVertexAttribArray(0);
 
-	//create matrices for transforms
-	glm::mat4 trans(1.0f);
 
-	//maybe we can play with different positions
-	glm::vec3 positions[] = {
-		glm::vec3(0.0f,  0.0f,  0),
-		glm::vec3(0.2f,  0.5f, 0),
-		glm::vec3(-0.15f, -0.22f, 0),
-		glm::vec3(-0.38f, -0.2f, 0),
-		glm::vec3(0.24f, -0.4f, 0),
-		glm::vec3(-0.17f,  0.3f, 0),
-		glm::vec3(0.23f, -0.2f, 0),
-		glm::vec3(0.15f,  0.2f, 0),
-		glm::vec3(0.15f,  0.7f, 0),
-		glm::vec3(-0.13f,  0.1f, 0)
-	};
 
-	// Set a callback for handling mouse cursor position
-	// Decomment for a callback example
+	// Load obstacles from file
+	FILE* obstaclesFile;
+	obstaclesFile = fopen("obstacles.txt", "r");
+	if (obstaclesFile == NULL) {
+		std::cout << "Error opening file" << std::endl;
+	}
+	else {
+		int i = 0;
+		while (!feof(obstaclesFile) && i < MAX_OBSTACLES) {
+			float x, y, z;
+			int results = fscanf(obstaclesFile, "%f,%f\n", &x, &y);
+			if (results != 2) {
+				continue;
+			}
+			obstacles[i] = glm::vec3(x, y, 0.0f);
+			i++;
+			OBSTACLES_COUNT++;
+		}
+		fclose(obstaclesFile);
+		std::cout << "Loaded " << OBSTACLES_COUNT << " obstacles" << std::endl;
+		std::cout << "Positions: " << std::endl;
+		for (int i = 0; i < OBSTACLES_COUNT; i++) {
+			std::cout << obstacles[i].x << " " << obstacles[i].y << std::endl;
+		}
+	}
+
+
+	// Action callbacks
 	glfwSetCursorPosCallback(window, cursor_position_callback);
 	glfwSetMouseButtonCallback(window, button_callback);
-	glfwSetKeyCallback(window, key_callback);
-
 
 	glfwSetFramebufferSizeCallback(window, window_callback);
 
+	// Bind the VAO and shader program once at the beginning of the loop
+	glBindVertexArray(vao);
+	glUseProgram(programID);
+
+	// Get uniform locations once
+	unsigned int transformLoc = glGetUniformLocation(programID, "transform");
+	unsigned int colorLoc = glGetUniformLocation(programID, "color");
 
 	// Check if the window was closed
 	while (!glfwWindowShouldClose(window) && glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_RELEASE)
@@ -192,32 +254,37 @@ int main(void)
 		// Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		// Use our shader
-		glUseProgram(programID);
-
-		if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-			trans = glm::rotate(trans, 0.1f, glm::vec3(0.0, 0.0, 1.0));
-		}
-		else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
-			trans = glm::rotate(trans, -0.1f, glm::vec3(0.0, 0.0, 1.0));
-
+		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS ||
+			glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS ||
+			glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS ||
+			glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+				moveCharacter();
 		}
 
-		trans = glm::mat4(1.0f);
-		trans = glm::translate(trans, glm::vec3(characterXpos, characterYpos, 0.0f));
+		// Draw obstacles
+		for (int i = 0; i < OBSTACLES_COUNT; i++) {
+			glm::mat4 obstacle = glm::mat4(1.0f);  // Initialize as identity matrix
+			obstacle = glm::translate(obstacle, glm::vec3(obstacles[i].x, obstacles[i].y, 0.0f));
 
-		//bind VAO
-		glBindVertexArray(vao);
+			glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(obstacle));
+			glm::vec4 obstacleColor = glm::vec4(0.5f, 0.0f, 0.5f, 1.0f);
+			glUniform4fv(colorLoc, 1, glm::value_ptr(obstacleColor));
 
-		// send variables to shader
-		unsigned int transformLoc = glGetUniformLocation(programID, "transform");
-		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(trans));
 
-		unsigned int transformLoc2 = glGetUniformLocation(programID, "color");
-		glm::vec4 color = glm::vec4(0.5f, 0, 0.5f, 1.0);
-		glUniform4fv(transformLoc2, 1, glm::value_ptr(color));
+			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		}
+
+		// Draw character
+		glm::mat4 character = glm::mat4(1.0f); // Initialize as identity matrix
+		character = glm::translate(character, glm::vec3(characterXpos, characterYpos, 0.0f));
+
+		// Set transform and color uniforms for character
+		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(character));
+		glm::vec4 characterColor = glm::vec4(0.0f, 0.5f, 0.5f, 1.0f);
+		glUniform4fv(colorLoc, 1, glm::value_ptr(characterColor));
 
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
 	}
 
 	// Cleanup
