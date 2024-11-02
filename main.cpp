@@ -367,15 +367,7 @@ int main(void)
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS ||
 			glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
 			moveCharacter();
-			
-			if (CHARACTER_SPEED < 0.0150f) {
-				CHARACTER_SPEED += 0.0001f;
-			}
 
-		}
-		else if (glfwGetKey(window, GLFW_KEY_W) == GLFW_RELEASE && glfwGetKey(window, GLFW_KEY_S) == GLFW_RELEASE &&
-			glfwGetKey(window, GLFW_KEY_A) == GLFW_RELEASE && glfwGetKey(window, GLFW_KEY_D) == GLFW_RELEASE) {
-			CHARACTER_SPEED = 0.005f;
 		}
 		
 		// Swap buffers and poll events
