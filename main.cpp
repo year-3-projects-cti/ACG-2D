@@ -29,7 +29,7 @@ const int width = 1080, height = 1080;
 // Character variables
 float characterXpos = -0.094444;
 float characterYpos = -0.983333;
-float CHARACTER_SPEED = 0.005f;
+float CHARACTER_SPEED = 0.001f;
 const float CHARACTER_SIZE = 0.05f;
 
 // Obstacles
@@ -432,15 +432,6 @@ int main(void) {
 			glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
 			moveCharacter();
 			checkMoneyBagCollision();  // Check for collisions with money bags
-
-			// Speed increment logic
-			if (CHARACTER_SPEED < 0.0150f) {
-				CHARACTER_SPEED += 0.0001f;
-			}
-		}
-		else {
-			// Reset speed when no movement keys are pressed
-			CHARACTER_SPEED = 0.005f;
 		}
 
 		// Swap buffers and poll events
