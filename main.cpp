@@ -38,6 +38,13 @@ int OBSTACLES_COUNT = 0;
 const float OBSTACLE_SIZE = 1.0f;
 glm::vec3 obstacles[MAX_OBSTACLES];
 
+// MoneyBags
+const int MAX_MONEYBAGS = 10;
+const float MONEYBAG_SIZE = 0.05f;
+glm::vec3 moneyBags[MAX_MONEYBAGS];
+bool moneyBagCollected[MAX_MONEYBAGS] = { false };
+int moneyBagsCollected = 0;
+
 
 //Handling cursor position
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
@@ -124,6 +131,45 @@ void moveCharacter() {
 	}
 }
 
+void initializeMoneyBags() {
+	for (int i = 0; i < MAX_MONEYBAGS; i++) {
+		// Randomly place money bags within screen bounds
+		float x = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 2)) - 1.0f;
+		float y = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 2)) - 1.0f;
+		moneyBags[i] = glm::vec3(x, y, 0.0f);
+		moneyBagCollected[i] = false;
+
+		std::cout << "Money Bag " << i + 1 << " initialized at (" << x << ", " << y << ")" << std::endl;
+	}
+}
+
+
+//Detecting collision between character and money bags
+void checkMoneyBagCollision() {
+	for (int i = 0; i < MAX_MONEYBAGS; i++) {
+		if (!moneyBagCollected[i]) {
+			float bagLeft = moneyBags[i].x - MONEYBAG_SIZE / 2;
+			float bagRight = moneyBags[i].x + MONEYBAG_SIZE / 2;
+			float bagBottom = moneyBags[i].y - MONEYBAG_SIZE / 2;
+			float bagTop = moneyBags[i].y + MONEYBAG_SIZE / 2;
+
+			// Calculate character bounding box
+			float characterLeft = characterXpos - CHARACTER_SIZE / 2;
+			float characterRight = characterXpos + CHARACTER_SIZE / 2;
+			float characterBottom = characterYpos - CHARACTER_SIZE / 2;
+			float characterTop = characterYpos + CHARACTER_SIZE / 2;
+
+			// Check for collision using AABB (Axis-Aligned Bounding Box)
+			if (characterRight > bagLeft && characterLeft < bagRight &&
+				characterTop > bagBottom && characterBottom < bagTop) {
+				moneyBagCollected[i] = true;
+				moneyBagsCollected++;
+				std::cout << "Money bag collected! Total: " << moneyBagsCollected << std::endl;
+			}
+		}
+	}
+}
+
 
 
 // ========================================================================== IMAGE BACKGROUND ==========================================================================
@@ -162,12 +208,13 @@ GLuint loadTexture(const char* filePath) {
 	return texture;
 }
 
+
+
 // ========================================================================================================================================================================
 
 
 
-int main(void)
-{
+int main(void) {
 	glDisable(GL_DEPTH_TEST);
 
 	// Initialise GLFW
@@ -201,6 +248,8 @@ int main(void)
 	// Dark blue background
 	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
+
+	initializeMoneyBags();
 
 
 	// Create and compile our GLSL program from the shaders
@@ -329,7 +378,7 @@ int main(void)
 	// Check if the window was closed
 	while (!glfwWindowShouldClose(window) && glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_RELEASE)
 	{
-		// Clear the screen (no depth buffer clear needed for 2D)
+		// Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		// 1. Render the background
@@ -341,6 +390,20 @@ int main(void)
 		// 2. Render obstacles and character with the main shader
 		glUseProgram(programID);
 		glBindVertexArray(vao);
+
+		// Draw money bags
+		for (int i = 0; i < MAX_MONEYBAGS; i++) {
+			if (!moneyBagCollected[i]) {  // Only draw if not collected
+				glm::mat4 moneyBagTransform = glm::mat4(1.0f);
+				moneyBagTransform = glm::translate(moneyBagTransform, moneyBags[i]);
+				glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(moneyBagTransform));
+
+				glm::vec4 moneyBagColor = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);  // Set money bag color to yellow
+				glUniform4fv(colorLoc, 1, glm::value_ptr(moneyBagColor));
+
+				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+			}
+		}
 
 		// Draw obstacles
 		for (int i = 0; i < OBSTACLES_COUNT; i++) {
@@ -364,26 +427,28 @@ int main(void)
 
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
+		// Check for character movement and collision with money bags
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS ||
 			glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
 			moveCharacter();
-			
+			checkMoneyBagCollision();  // Check for collisions with money bags
+
+			// Speed increment logic
 			if (CHARACTER_SPEED < 0.0150f) {
 				CHARACTER_SPEED += 0.0001f;
 			}
-
 		}
-		else if (glfwGetKey(window, GLFW_KEY_W) == GLFW_RELEASE && glfwGetKey(window, GLFW_KEY_S) == GLFW_RELEASE &&
-			glfwGetKey(window, GLFW_KEY_A) == GLFW_RELEASE && glfwGetKey(window, GLFW_KEY_D) == GLFW_RELEASE) {
+		else {
+			// Reset speed when no movement keys are pressed
 			CHARACTER_SPEED = 0.005f;
 		}
-		
+
 		// Swap buffers and poll events
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
-	// Cleanup
+	// Cleanup (outside of the main loop)
 	glDeleteBuffers(1, &vbo);
 	glDeleteBuffers(1, &ibo);
 	glDeleteVertexArrays(1, &vao);
@@ -394,5 +459,6 @@ int main(void)
 
 	return 0;
 }
+
 
 
