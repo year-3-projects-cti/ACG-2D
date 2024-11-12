@@ -45,6 +45,10 @@ glm::vec3 moneyBags[MAX_MONEYBAGS];
 bool moneyBagCollected[MAX_MONEYBAGS] = { false };
 int moneyBagsCollected = 0;
 
+// Police variables
+float policeXpos = 0.0f;
+float policeYpos = 0.0f;
+float POLICE_SIZE = 0.05f;
 
 //Handling cursor position
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
@@ -129,6 +133,26 @@ void moveCharacter() {
 	else {
 		std::cout << "Character position: (" << characterXpos << ", " << characterYpos << ")" << std::endl;
 	}
+}
+
+void policeShoot(unsigned int transformLoc) {
+	float dx = characterXpos - policeXpos;
+	float dy = characterYpos - policeYpos;
+	float angle = atan2(dy, dx);
+	float bulletSpeed = 0.001f;
+	policeXpos += bulletSpeed * cos(angle);
+	policeYpos += bulletSpeed * sin(angle);
+
+	// Draw bullet
+	glm::mat4 bulletTransform = glm::mat4(1.0f);
+	bulletTransform = glm::translate(bulletTransform, glm::vec3(policeXpos, policeYpos, 0.0f));
+	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(bulletTransform));
+
+	glm::vec4 bulletColor = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);  // Set bullet color to red
+	glUniform4fv(transformLoc, 1, glm::value_ptr(bulletColor));
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
 }
 
 void initializeMoneyBags() {
@@ -416,6 +440,16 @@ int main(void) {
 
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		}
+
+		// Draw police
+		glm::mat4 policeTransform = glm::mat4(1.0f);
+		policeTransform = glm::translate(policeTransform, glm::vec3(policeXpos, policeYpos, 0.0f));
+		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(policeTransform));
+
+		glm::vec4 policeColor = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);  // Set police color
+		glUniform4fv(colorLoc, 1, glm::value_ptr(policeColor));
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		policeShoot(transformLoc);
 
 		// Draw character
 		glm::mat4 characterTransform = glm::mat4(1.0f);
