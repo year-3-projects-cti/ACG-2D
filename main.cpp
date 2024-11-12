@@ -168,7 +168,7 @@ void enforcerFollow(unsigned int transformLoc) {
 	float dx = characterXpos - enforcerXpos;
 	float dy = characterYpos - enforcerYpos;
 	float angle = atan2(dy, dx);
-	float enforcerSpeedSpeed = 0.0005f;
+	float enforcerSpeedSpeed = 0.0007f;
 	enforcerXpos += enforcerSpeedSpeed * cos(angle);
 	enforcerYpos += enforcerSpeedSpeed * sin(angle);
 
