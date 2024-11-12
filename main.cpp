@@ -161,16 +161,16 @@ void moveCharacter() {
 	}
 }
 
-void policeShoot(unsigned int transformLoc) {
+void enforcerFollow(unsigned int transformLoc) {
 	if (!isEnforcerActive) {
 		return;
 	}
 	float dx = characterXpos - enforcerXpos;
 	float dy = characterYpos - enforcerYpos;
 	float angle = atan2(dy, dx);
-	float bulletSpeed = 0.001f;
-	enforcerXpos += bulletSpeed * cos(angle);
-	enforcerYpos += bulletSpeed * sin(angle);
+	float enforcerSpeedSpeed = 0.0005f;
+	enforcerXpos += enforcerSpeedSpeed * cos(angle);
+	enforcerYpos += enforcerSpeedSpeed * sin(angle);
 
 	glm::mat4 bulletTransform = glm::mat4(1.0f);
 	bulletTransform = glm::translate(bulletTransform, glm::vec3(enforcerXpos, enforcerYpos, 0.0f));
@@ -493,7 +493,7 @@ int main(void) {
 		glm::vec4 policeColor = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);  // Set police color
 		glUniform4fv(colorLoc, 1, glm::value_ptr(policeColor));
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		policeShoot(transformLoc);
+		enforcerFollow(transformLoc);
 
 		// Draw character
 		glm::mat4 characterTransform = glm::mat4(1.0f);
