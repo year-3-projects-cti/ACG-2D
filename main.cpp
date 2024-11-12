@@ -45,6 +45,14 @@ glm::vec3 moneyBags[MAX_MONEYBAGS];
 bool moneyBagCollected[MAX_MONEYBAGS] = { false };
 int moneyBagsCollected = 0;
 
+// Enforcer variables
+float enforcerXpos = 0.0f;
+float enforcerYpos = 0.0f;
+float ENFORCER_SIZE = 0.05f;
+int ENFORCER_HITTED_WALLS = 0;
+bool isCollidingWithWall = false;
+bool isEnforcerActive = true;
+
 
 //Handling cursor position
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
@@ -82,8 +90,20 @@ void window_callback(GLFWwindow* window, int new_width, int new_height)
 	glViewport(0, 0, new_width, new_height);
 }
 
-// Helper function to check collision between character and obstacles
-bool checkCollision(float newX, float newY) {
+/**
+	Helper function to check collision between character and obstacles
+	Params:
+		std::string const& character:
+			the entity to check, possible values:
+			- player
+			- enforcer
+		float newX
+			the new X position of the entity
+		float newY
+			the new Y position of the entity
+
+ */
+bool checkCollision(std::string const& entity, float newX, float newY) {
 	for (int i = 0; i < OBSTACLES_COUNT; i++) {
 		// Calculate bounding box for obstacle
 		float obstacleLeft = obstacles[i].x - CHARACTER_SIZE / 2;
@@ -91,18 +111,28 @@ bool checkCollision(float newX, float newY) {
 		float obstacleBottom = obstacles[i].y - CHARACTER_SIZE / 2;
 		float obstacleTop = obstacles[i].y + CHARACTER_SIZE / 2;
 
-		// Calculate bounding box for character
-		float characterLeft = newX - CHARACTER_SIZE / 2;
-		float characterRight = newX + CHARACTER_SIZE / 2;
-		float characterBottom = newY - CHARACTER_SIZE / 2;
-		float characterTop = newY + CHARACTER_SIZE / 2;
 
+		// Calculate bounding box for entity
+		float entityLeft = 0.0f, entityRight = 0.0f, entityBottom = 0.0f, entityTop = 0.0f;
+		if (entity == "player") {
+			entityLeft = newX - CHARACTER_SIZE / 2;
+			entityRight = newX + CHARACTER_SIZE / 2;
+			entityBottom = newY - CHARACTER_SIZE / 2;
+			entityTop = newY + CHARACTER_SIZE / 2;
+		}
+		else if (entity == "enforcer") {
+			entityLeft = newX - ENFORCER_SIZE / 2;
+			entityRight = newX + ENFORCER_SIZE / 2;
+			entityBottom = newY - ENFORCER_SIZE / 2;
+			entityTop = newY + ENFORCER_SIZE / 2;
+		}
 		// Check for collision using AABB (Axis-Aligned Bounding Box)
-		if (characterRight > obstacleLeft && characterLeft < obstacleRight &&
-			characterTop > obstacleBottom && characterBottom < obstacleTop) {
+		if (entityRight > obstacleLeft && entityLeft < obstacleRight &&
+			entityTop > obstacleBottom && entityBottom < obstacleTop) {
 			return true;  // Collision detected
 		}
 	}
+
 	return false;  // No collision
 }
 
@@ -121,7 +151,7 @@ void moveCharacter() {
 	characterYpos = std::max(-1.0f, std::min(characterYpos, 1.0f - CHARACTER_SIZE));
 
 	// Check for collisions; if collision, revert to original position
-	if (checkCollision(characterXpos, characterYpos)) {
+	if (checkCollision("player", characterXpos, characterYpos)) {
 		characterXpos = originalX;
 		characterYpos = originalY;
 		std::cout << "Collision detected! Movement blocked." << std::endl;
@@ -130,6 +160,44 @@ void moveCharacter() {
 		std::cout << "Character position: (" << characterXpos << ", " << characterYpos << ")" << std::endl;
 	}
 }
+
+void enforcerFollow(unsigned int transformLoc) {
+	if (!isEnforcerActive) {
+		return;
+	}
+	float dx = characterXpos - enforcerXpos;
+	float dy = characterYpos - enforcerYpos;
+	float angle = atan2(dy, dx);
+	float enforcerSpeedSpeed = 0.0007f;
+	enforcerXpos += enforcerSpeedSpeed * cos(angle);
+	enforcerYpos += enforcerSpeedSpeed * sin(angle);
+
+	glm::mat4 bulletTransform = glm::mat4(1.0f);
+	bulletTransform = glm::translate(bulletTransform, glm::vec3(enforcerXpos, enforcerYpos, 0.0f));
+	glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(bulletTransform));
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+	if (checkCollision("enforcer", enforcerXpos, enforcerYpos)) {
+		if (!isCollidingWithWall) { 
+			ENFORCER_HITTED_WALLS++;
+			isCollidingWithWall = true;
+			std::cout << "Enforcer hit wall " << ENFORCER_HITTED_WALLS << " times" << std::endl;
+		}
+		if (ENFORCER_HITTED_WALLS == 3) {
+			isEnforcerActive = false;
+			enforcerXpos = 10.0f;
+			enforcerYpos = 10.0f;
+			ENFORCER_HITTED_WALLS = 0;
+			isCollidingWithWall = false;
+			std::cout << "Enforcer destroyed!" << std::endl;
+		}
+	}
+	else {
+		isCollidingWithWall = false;
+	}
+}
+
 
 void initializeMoneyBags() {
 	for (int i = 0; i < MAX_MONEYBAGS; i++) {
@@ -416,6 +484,16 @@ int main(void) {
 
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		}
+
+		// Draw police
+		glm::mat4 policeTransform = glm::mat4(1.0f);
+		policeTransform = glm::translate(policeTransform, glm::vec3(enforcerXpos, enforcerYpos, 0.0f));
+		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(policeTransform));
+
+		glm::vec4 policeColor = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);  // Set police color
+		glUniform4fv(colorLoc, 1, glm::value_ptr(policeColor));
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		enforcerFollow(transformLoc);
 
 		// Draw character
 		glm::mat4 characterTransform = glm::mat4(1.0f);
