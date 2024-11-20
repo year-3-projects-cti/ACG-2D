@@ -23,7 +23,7 @@
 
 //variables
 GLFWwindow* window;
-const int width = 1080, height = 1080;
+const int width = 800, height = 800;
 
 
 // Character variables
