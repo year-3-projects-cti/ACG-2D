@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <string> 
+
 
 // Include GLEW
 #include "dependente\glew\glew.h"
@@ -38,6 +40,7 @@ int OBSTACLES_COUNT = 0;
 const float OBSTACLE_SIZE = 1.0f;
 glm::vec3 obstacles[MAX_OBSTACLES];
 
+
 // MoneyBags
 const int MAX_MONEYBAGS = 10;
 const float MONEYBAG_SIZE = 0.05f;
@@ -52,6 +55,9 @@ float ENFORCER_SIZE = 0.05f;
 int ENFORCER_HITTED_WALLS = 0;
 bool isCollidingWithWall = false;
 bool isEnforcerActive = true;
+
+
+bool isGameActive = true;
 
 void button_callback(GLFWwindow* window, int button, int action, int mods)
 {
@@ -186,6 +192,8 @@ void enforcerFollow(unsigned int transformLoc) {
 			isCollidingWithWall = false;
 			std::cout << "Enforcer destroyed!" << std::endl;
 		}
+		// Check if is colliding with player
+
 	}
 	else {
 		isCollidingWithWall = false;
@@ -439,6 +447,10 @@ int main(void) {
 	// Check if the window was closed
 	while (!glfwWindowShouldClose(window) && glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_RELEASE)
 	{
+
+		std::string title = "Coins collected: " + std::to_string(moneyBagsCollected);
+		glfwSetWindowTitle(window, title.c_str());
+
 		// Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT);
 
@@ -501,8 +513,10 @@ int main(void) {
 		// Check for character movement and collision with money bags
 		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS ||
 			glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-			moveCharacter();
-			checkMoneyBagCollision();  // Check for collisions with money bags
+			if (isGameActive) {
+				moveCharacter();
+				checkMoneyBagCollision();  // Check for collisions with money bags
+			}
 		}
 
 		// Swap buffers and poll events
