@@ -53,12 +53,6 @@ int ENFORCER_HITTED_WALLS = 0;
 bool isCollidingWithWall = false;
 bool isEnforcerActive = true;
 
-
-//Handling cursor position
-void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
-{
-}
-
 void button_callback(GLFWwindow* window, int button, int action, int mods)
 {
 	if (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS) {
@@ -430,7 +424,6 @@ int main(void) {
 
 
 	// Action callbacks
-	glfwSetCursorPosCallback(window, cursor_position_callback);
 	glfwSetMouseButtonCallback(window, button_callback);
 
 	glfwSetFramebufferSizeCallback(window, window_callback);
