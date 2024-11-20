@@ -29,7 +29,7 @@ const int width = 800, height = 800;
 // Character variables
 float characterXpos = -0.094444;
 float characterYpos = -0.983333;
-float CHARACTER_SPEED = 0.001f;
+float CHARACTER_SPEED = 0.0003f;
 const float CHARACTER_SIZE = 0.05f;
 
 // Obstacles
@@ -69,7 +69,7 @@ void button_callback(GLFWwindow* window, int button, int action, int mods)
 			ypos = -ypos / height * 2 + 1;
 			fprintf(file, "%f,%f\n", xpos, ypos);
 			fclose(file);
-			std::cout << "Obstacle position saved. (" << xpos << ", " << ypos << ")" << std::endl;
+			//std::cout << "Obstacle position saved. (" << xpos << ", " << ypos << ")" << std::endl;
 
 			// Add the obstacle to the obstacles array
 			obstacles[OBSTACLES_COUNT] = glm::vec3(xpos, ypos, 0);
@@ -148,10 +148,10 @@ void moveCharacter() {
 	if (checkCollision("player", characterXpos, characterYpos)) {
 		characterXpos = originalX;
 		characterYpos = originalY;
-		std::cout << "Collision detected! Movement blocked." << std::endl;
+		//std::cout << "Collision detected! Movement blocked." << std::endl;
 	}
 	else {
-		std::cout << "Character position: (" << characterXpos << ", " << characterYpos << ")" << std::endl;
+		//std::cout << "Character position: (" << characterXpos << ", " << characterYpos << ")" << std::endl;
 	}
 }
 
@@ -162,7 +162,7 @@ void enforcerFollow(unsigned int transformLoc) {
 	float dx = characterXpos - enforcerXpos;
 	float dy = characterYpos - enforcerYpos;
 	float angle = atan2(dy, dx);
-	float enforcerSpeedSpeed = 0.0007f;
+	float enforcerSpeedSpeed = 0.0002f;
 	enforcerXpos += enforcerSpeedSpeed * cos(angle);
 	enforcerYpos += enforcerSpeedSpeed * sin(angle);
 
@@ -201,7 +201,7 @@ void initializeMoneyBags() {
 		moneyBags[i] = glm::vec3(x, y, 0.0f);
 		moneyBagCollected[i] = false;
 
-		std::cout << "Money Bag " << i + 1 << " initialized at (" << x << ", " << y << ")" << std::endl;
+		//std::cout << "Money Bag " << i + 1 << " initialized at (" << x << ", " << y << ")" << std::endl;
 	}
 }
 
